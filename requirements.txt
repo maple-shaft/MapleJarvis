@@ -1,0 +1,4 @@
+ollama
+setuptools
+asyncio
+guizero

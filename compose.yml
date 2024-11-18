@@ -1,0 +1,33 @@
+services:
+  ollama-jarvis:
+    container_name: ollama-jarvis
+    build: ./ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - gpus=all
+      - OLLAMA_MODELS=/app/volumes
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - /home/dustin/git/MapleJarvis:/app
+      - ./.ollama:/root/.ollama
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f ollama-jarvis:11434 || exit 1"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    
