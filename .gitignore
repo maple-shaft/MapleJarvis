@@ -10,4 +10,6 @@ __pycache__/*
 # Container Volumes
 volumes/*
 *.deb
+*.gguf
+*.rdb
 .ollama/*
