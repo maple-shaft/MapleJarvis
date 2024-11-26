@@ -1,7 +1,7 @@
 services:
   ollama-redis:
     container_name: ollama-redis
-    image: redis
+    image: redis/redis-stack
     env_file:
       - redis/redis-env.env
     ports:

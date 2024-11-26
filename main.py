@@ -5,12 +5,16 @@ from jarvisdao import JarvisDAO
 print("Starting JarvisGui")
 
 jarvisDAO = JarvisDAO()
-jarvisClient = JarvisClient(dao = jarvisDAO, model = "rp")
+jarvisClient = JarvisClient(dao = jarvisDAO, model = "Mario")
 
 #jarvisClient.pull()
 
-jarvisClient.createModel(filepath = "./ollama/Blue-Orchid-2x7b-Q4_K_M.gguf", modelName = "rp")
-jarvisClient.setModel(model = "rp")
+jarvisClient.createModel(modelName = "Mario")
+jarvisClient.setModel(model = "Mario")
+
+#convs = jarvisDAO.get_conversation("rp")
+#for i in convs:
+#    print(f"ConversationEntity {i}")
 
 g = JarvisGui(jarvisClient = jarvisClient)
 if not g:

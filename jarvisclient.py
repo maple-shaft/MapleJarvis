@@ -1,30 +1,35 @@
 from jarvisdao import JarvisDAO
 from ollama import Client
 from ollama._types import (ResponseError, Message, Sequence)
-import logging
+from typing import Optional
 import json
 
 class JarvisClient:
 
-    def __init__(self, dao : JarvisDAO, model : str = "llama3.2", isAsync : bool = False):
+    def __init__(self, dao : JarvisDAO, model : str = "llama3.2", conversation_id : Optional[str] = None, isAsync : bool = False):
         self.dao = dao
         self.model = model
+        self.current_conversation = conversation_id
         self.isAsync = isAsync
         if not isAsync:
             self.client = Client()
-        self.messages = [{"role":"system", "content":"You are an AI assistant."}]
+        self.messages = []
     
-    def setModel(self, model : str):
-        if model:
-            self.model = model
+    def clearConversation(self):
+        self.messages = []
+        self.current_conversation = None
 
-    def createModel(self, filepath : str, modelName : str):
-        modelfile = f'''
-            FROM {filepath}
-            SYSTEM You are mario from super mario bros.
-            '''
-        print(modelfile)
-        self.client.create(model = modelName, modelfile = modelfile)
+    def setModel(self, model : str):
+        self.model = model
+
+    def setSystemMessage(self, system_prompt : str):
+        self.clearConversation()
+        systemMessage : Message = self._craftMessage(text = system_prompt, role = "system")
+        self.messages.append(systemMessage)
+
+    @staticmethod
+    def createModel(modelName : str):
+        Client("http://localhost:11434").create(model = modelName, path = f"./models/{modelName}")
 
     def _craftMessage(self, text : str, role : str) -> Message:
         if not text or not role:
@@ -45,17 +50,21 @@ class JarvisClient:
             print(f"ResponseError was thrown: {re}")
 
     def prompt(self, prompt : str) -> str:
+        userPromptMessage : Message = self._craftMessage(text = prompt, role = "user")
+        self.messages.append(userPromptMessage)
+        self.current_conversation = JarvisDAO.save_message(model_name = self.model, conversation_id = self.current_conversation, message = userPromptMessage)
         try:
-            self._assignMessage(prompt, "user")
             resp = self.client.chat(model=self.model, messages=self.messages, keep_alive=50)
             if resp:
-                self.messages.append(resp["message"])
                 for r in resp:
                     print(f"Response[{r}] = {resp[r]}")
-                    #TODO: Add Redis response persistence
+                assistantMessage : Message = resp["message"]
+                self.current_conversation = JarvisDAO.save_message(
+                    model_name = self.model,
+                    message = assistantMessage,
+                    conversation_id=self.current_conversation)
             else:
                 print("No response returned")
-            ret = resp["message"]["content"]
-            return ret
+            return resp["message"]["content"]
         except ResponseError as re:
             print(f"Response error in prompt: {re}")

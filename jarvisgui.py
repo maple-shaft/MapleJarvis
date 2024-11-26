@@ -19,6 +19,18 @@ class JarvisGui:
     def submitEmbedding(self):
         print("Not implemented yet")
 
+    def submitClear(self):
+        print("Clearing the conversation")
+        self.jarvisClient.clearConversation()
+        self.response.value = "Cleared Conversation"
+        self.promptInput.value = ""
+
+    def initializeButtons(self):
+        self.buttonbox = Box(master = self.centerbox, height = 20, width = "fill", align = "top")
+        self.promptbutton = PushButton(master = self.buttonbox, align = "left", text = "Submit Prompt", command = self.submitPrompt, padx = 10, pady = 10)
+        self.embedbutton = PushButton(master = self.buttonbox, align = "left", padx = 10, pady = 10, text = "Submit Embedding", command = self.submitEmbedding)
+        self.clearbutton = PushButton(master = self.buttonbox, align = "left", padx = 10, pady = 10, text = "Clear Conversation", command = self.submitClear)
+
     def initializeGui(self):
         self.app = App(title = JarvisGui.TITLE, width = 1024, height = 760)
         self.leftpadding = Box(master = self.app, width = 10, height = "fill", align = "left")
@@ -29,11 +41,9 @@ class JarvisGui:
         self.padding2 = Box(master = self.centerbox, height = 10, width = "fill", align = "top")
         self.description = Text(master = self.centerbox, text = "Enter a prompt below and then click Submit to view the LLM output.", align = "top")
         self.padding3 = Box(master = self.centerbox, height = 10, width = "fill", align = "top")
-        self.promptInput = TextBox(master = self.centerbox, width = "fill", multiline = True, scrollbar = True, align = "top")
+        self.promptInput = TextBox(master = self.centerbox, width = "fill", height = 10, multiline = True, scrollbar = True, align = "top")
         self.padding4 = Box(master = self.centerbox, height = 10, width = "fill", align = "top")
-        self.submit = PushButton(master = self.centerbox, text = "Submit Prompt", command = self.submitPrompt, padx = 10, pady = 10, align = "top")
+        self.initializeButtons()
         self.padding5 = Box(master = self.centerbox, height = 10, width = "fill", align = "top")
-        self.submitembed = PushButton(master = self.centerbox, text = "Submit Embedding", command = self.submitEmbedding, padx = 10, pady = 10, align = "top")
-        self.padding6 = Box(master = self.centerbox, height = 10, width = "fill", align = "top")
         self.response = TextBox(master = self.centerbox, width = "fill", height = "fill", align = "top", multiline = True, scrollbar = True)
         self.app.display()

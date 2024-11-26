@@ -3,3 +3,4 @@ setuptools
 asyncio
 guizero
 redis
+redis-om
