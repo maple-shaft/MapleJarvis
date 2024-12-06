@@ -1,7 +1,8 @@
 from jarvisdao import JarvisDAO
+from jarvisvoice import JarvisVoice
 from ollama import Client
 from ollama._types import (ResponseError, Message, Sequence)
-from typing import Optional
+from typing import List, Optional
 import json
 
 class JarvisClient:
@@ -14,6 +15,7 @@ class JarvisClient:
         if not isAsync:
             self.client = Client()
         self.messages = []
+        self.voice = JarvisVoice()
     
     def clearConversation(self):
         self.messages = []
@@ -50,6 +52,11 @@ class JarvisClient:
             print(f"ResponseError was thrown: {re}")
 
     def prompt(self, prompt : str) -> str:
+        conv_length : int = self.messages.__len__()
+        print(f"Conversation length: {conv_length}")
+        for i,v in enumerate(self.messages):
+            print(f"Conversation Index[{i}], Value[{v}]")
+
         userPromptMessage : Message = self._craftMessage(text = prompt, role = "user")
         self.messages.append(userPromptMessage)
         self.current_conversation = JarvisDAO.save_message(model_name = self.model, conversation_id = self.current_conversation, message = userPromptMessage)
@@ -65,6 +72,20 @@ class JarvisClient:
                     conversation_id=self.current_conversation)
             else:
                 print("No response returned")
+            
+            # Speak the text
+            self.voice.speak(resp["message"]["content"])
             return resp["message"]["content"]
         except ResponseError as re:
             print(f"Response error in prompt: {re}")
+
+    def embed(self, document : str) -> Sequence[float]:
+        response = self.client.embeddings(model = self.model, prompt = document)
+        if response:
+            return response["embedding"]
+        
+    def generate(self, prompt : str, embedding_data):
+        embedded_prompt : str = f"Using this data: {embedding_data}. Respond to this prompt: {prompt}"
+        output = self.client.generate(model = self.model, prompt = embedded_prompt)
+        if output:
+            return output["response"]

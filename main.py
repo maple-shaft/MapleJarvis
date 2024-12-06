@@ -1,16 +1,19 @@
 from jarvisclient import JarvisClient
 from jarvisgui import JarvisGui
 from jarvisdao import JarvisDAO
+from jarvisdocuments import JarvisDocuments
 
 print("Starting JarvisGui")
 
 jarvisDAO = JarvisDAO()
-jarvisClient = JarvisClient(dao = jarvisDAO, model = "Mario")
+jarvisClient = JarvisClient(dao = jarvisDAO, model = "rp")
+jarvisClient.createModel(modelName = "rp")
+jarvisClient.setModel(model = "rp")
+#jarvisDocuments = JarvisDocuments(jarvis_client = jarvisClient, documents = JarvisDocuments.generateExampleDocuments())
+#doc_vector_embeddings = jarvisDocuments.createDocumentVectorEmbeddings()
+#relevant_docs = jarvisDocuments.findRelevantDocuments(col = doc_vector_embeddings, prompt = "Who is Rick Stevenson?")
 
-#jarvisClient.pull()
-
-jarvisClient.createModel(modelName = "Mario")
-jarvisClient.setModel(model = "Mario")
+print("Relevant Documents: ")
 
 #convs = jarvisDAO.get_conversation("rp")
 #for i in convs:
