@@ -5,6 +5,9 @@ guizero
 redis
 redis-om
 chromadb
-pyttsx3
 styletts2
 sounddevice
+fastapi
+python-multipart
+pydub
+ffmpeg-python

@@ -1,0 +1,98 @@
+<!-- WebSocket Audio Interface for the LLM -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Audio</title>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <h1>Jarvis Web Client (Audio)</h1>
+    <input type="text" id="messageInput" class="promptText" autocomplete="off" placeholder="Type a message">
+    <button id="sendButton">Send</button>
+    <button id="clearButton">Clear Conversation</button>
+    <audio id="audioPlayer" autoplay></audio>
+    
+    <ul id="messages"></ul>
+
+    <script>
+        const audioPlayer = document.getElementById("audioPlayer");
+        const sendButton = document.getElementById("sendButton");
+        const clearButton = document.getElementById("clearButton");
+        const messageInput = document.getElementById("messageInput")
+        const messages = document.getElementById("messages");
+        const ws = new WebSocket("ws://127.0.0.1:8000/audio");
+        // Create a WebSocket connection to the server
+        const wsprompt = new WebSocket("ws://127.0.0.1:8000/prompt");
+
+        var clientid;
+        // Handle WebSocket connection open
+        wsprompt.onopen = () => {
+            status.textContent = "Connected";
+            console.log("wsprompt connection established");
+        };
+
+        // Handle WebSocket messages from the server
+        wsprompt.onmessage = (event) => {
+            const li = document.createElement("li");
+            li.textContent = event.data;
+            messages.appendChild(li);
+            clientid = event.data;
+            ws.send(clientid);
+        };
+
+        // Handle WebSocket connection close
+        wsprompt.onclose = () => {
+            status.textContent = "Disconnected";
+            console.log("wsprompt connection closed");
+        };
+
+        // Send a message to the server when the button is clicked
+        sendButton.addEventListener("click", () => {
+            const message = messageInput.value;
+            if (message) {
+                wsprompt.send(message);
+                messageInput.value = "";
+            }
+        });
+
+        clearButton.addEventListener("click", () => {
+            console.log("Clear conversation button clicked")
+        })
+
+        // Create a MediaSource for dynamic audio data
+        const mediaSource = new MediaSource();
+        audioPlayer.src = URL.createObjectURL(mediaSource);
+        //const sourceBuffer = mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
+
+        sourceopen = function() {
+            console.log(this.readyState)
+            const sourceBuffer = mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
+            sourceBuffer.addEventListener("updateend", () => {
+                console.log('In update end, readystate = ' + mediaSource.readyState);
+            });
+            ws.onmessage = (event) => {
+                console.log('ws onmessage entered');
+                if (event.data instanceof Blob) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        sourceBuffer.appendBuffer(new Uint8Array(reader.result));
+                    };
+                    reader.readAsArrayBuffer(event.data);
+                }
+            }
+            ws.onclose = () => {
+                console.log("ws connection closed");
+                mediaSource.endOfStream();
+            };
+        }
+        mediaSource.onsourceopen = sourceopen
+
+        ws.onopen = () => {
+            console.log("ws connection open")
+        }
+        ws.onerror = (error) => {
+            console.error("ws error:", error);
+        };
+    </script>
+</body>
+</html>

@@ -1,8 +1,8 @@
-# General Role-Playing Modelfile
+# Experimenting with embeddings
 
 FROM ./Blue-Orchid-2x7b-Q4_K_M.gguf
 
-PARAMETER temperature 0.5
+PARAMETER temperature 0.8
 PARAMETER stop <|im_start|>
 PARAMETER stop <|im_end|>
 
@@ -13,4 +13,4 @@ TEMPLATE """{{ if .System}}<|im_start|>system
 {{ end }}<|im_start|>assistant
 """
 
-SYSTEM You are a helpful AI assistant.
+SYSTEM You are an AI assistant that provides short, succinct, and casual responses in an informal way.

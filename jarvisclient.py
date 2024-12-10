@@ -1,3 +1,4 @@
+from numpy import ndarray
 from jarvisdao import JarvisDAO
 from jarvisvoice import JarvisVoice
 from ollama import Client
@@ -51,7 +52,7 @@ class JarvisClient:
         except ResponseError as re:
             print(f"ResponseError was thrown: {re}")
 
-    def prompt(self, prompt : str) -> str:
+    def prompt(self, prompt : str, give_voice : bool = False) -> str | bytes:
         conv_length : int = self.messages.__len__()
         print(f"Conversation length: {conv_length}")
         for i,v in enumerate(self.messages):
@@ -74,8 +75,10 @@ class JarvisClient:
                 print("No response returned")
             
             # Speak the text
-            self.voice.speak(resp["message"]["content"])
-            return resp["message"]["content"]
+            if give_voice:
+                return self.voice.speak(resp["message"]["content"], play = False)
+            else:
+                return resp["message"]["content"]
         except ResponseError as re:
             print(f"Response error in prompt: {re}")
 

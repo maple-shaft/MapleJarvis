@@ -1,7 +1,27 @@
 # Python Stuff
 
 .venv/*
-__pycache__/*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+.venv
+venv/
+*.egg
+*.egg-info
+
+# Installer files
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
 
 # Visual Studio Code
 

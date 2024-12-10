@@ -1,0 +1,10 @@
+
+input[type="text"] {
+    width: 80%;
+    margin: 5px auto;
+}
+
+input[type="button"] {
+    width: 200px;
+    margin: 5px auto;
+}
