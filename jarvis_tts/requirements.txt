@@ -1,0 +1,5 @@
+gdown
+phonemizer
+prompt_toolkit
+pyaudio
+git+https://github.com/resemble-ai/monotonic_align.git

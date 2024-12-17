@@ -33,3 +33,6 @@ volumes/*
 *.gguf
 *.rdb
 .ollama/*
+*.pth
+*.t7
+*.wav

@@ -2,7 +2,7 @@ from typing import Any, Optional
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
-from jarvis_tts.tts import StyleTTS2
+import jarvis_tts.synthesize2 as s 
 import time
 import io
 from pydub import AudioSegment
@@ -23,19 +23,14 @@ duration_s = 5.0
 # Attenuation
 atten = 0.3
 
-class JarvisStyleTTS2(StyleTTS2):
-
-    def __init__(self, device : str = "cpu"):
-        super().__init__()
-        self.device = device
-
 class JarvisVoice:
 
     def __init__(self):
-        self.tts : JarvisStyleTTS2 = JarvisStyleTTS2()
+        s.initialize()
 
     def speakInference(self, text : str):
-        return self.tts.inference(text=text, output_sample_rate = 24000, output_wav_file = "test.wav")
+        return s.infer_from_text(text)
+        #return self.tts.inference(text=text, output_sample_rate = 24000, output_wav_file = "test.wav")
 
     def calcWaveForm(self, data, freq : float = 440.0, sps : int = 44100, atten : Optional[float] = None):
         waveform =  np.sin(2 * np.pi * freq * data / sps)
