@@ -14,7 +14,7 @@ dataset_params:
     word_separator: 3039 # token used for word separator (<formula>)
     token_maps: "token_maps.pkl" # token map path
     
-    max_mel_length: 512 # max phoneme length
+    max_mel_length: 1000 # max phoneme length
     
     word_mask_prob: 0.15 # probability to mask the entire word
     phoneme_mask_prob: 0.1 # probability to mask each phoneme

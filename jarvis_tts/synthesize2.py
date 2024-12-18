@@ -201,23 +201,32 @@ class State(Enum):
 
 # def bottom_toolbar():
 #     return HTML('Back: <b><style bg="ansired">Ctrl+C</style></b> Go back')
+def split_string_into_chunks(string, chunk_size):
+    """Splits a string into equal-sized chunks."""
+    return [string[i:i+chunk_size] for i in range(0, len(string), chunk_size)]
 
-def infer_from_text(text: str, reference_file : str = REFERENCE_PATH + "freddy_fazbear.wav") -> npt.NDArray:
-    initialize()
+def infer_from_text(text: str, reference_file : str = "freddy_fazbear.wav") -> npt.NDArray:
+    #reference_file = REFERENCE_PATH + reference_file
+    #initialize()
     style_cache: typing.Dict[str, Tensor] = {}
     reference_label = ''
     filepath = ''
-    if len(text) > model_config['model_params']['max_conv_dim']:
-        print(f"[red]Sorry, StyleTTS2 is limited to {model_config['model_params']['max_conv_dim']} characters.[/red] Please shorten your input and try again.")
-    else:
-        start = time.time()
+    start = time.time()
+    try:
         if reference_file not in style_cache:
             style_cache[reference_file] = compute_style(REFERENCE_PATH + reference_file)
-            audio = inference(text, style_cache[reference_file])
-            processing_time = time.time() - start
-            duration = len(audio) / model_config['preprocess_params']['sr']
-            print(f"Wrote {duration:2f}s of data in {processing_time:2f}s (Ctrl+P to play)")
-            return audio
+            if len(text) > 512:
+                text_chunks = split_string_into_chunks(text, 510)
+                print(f"Number of text chunks is {len(text_chunks)}")
+                audio_chunks = []
+                for v in text_chunks:
+                    audio_chunks.append(inference(text, style_cache[reference_file]))
+                return np.concatenate(audio_chunks)
+            else:
+                return inference(text, style_cache[reference_file])
+    finally:
+        processing_time = time.time() - start
+        print(f"Wrote data in {processing_time:2f}s (Ctrl+P to play)")    
 
 def main():
     depend_zip('LibriTTS pre-trained model', PRETRAINED_MODEL_PATH, MODEL_URL)
