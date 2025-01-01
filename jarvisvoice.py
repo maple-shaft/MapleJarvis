@@ -4,13 +4,8 @@ import soundfile as sf
 import numpy as np
 import numpy.typing as npt
 import jarvis_tts.synthesize2 as s 
-import time
 import io
 from pydub import AudioSegment
-
-# Default natural language tokenizer table may need to be downloaded to venv before this will work.
-# import nltk
-# nltk.download("punkt_tab") 
 
 # Samples per second
 sps = 44100
@@ -45,15 +40,16 @@ class JarvisVoice:
                 ret.append(working + " ")
                 working = ""
             working += " " + token
+        ret.append(working)
         return ret
 
 
-    def speakInference(self, text : str) -> npt.NDArray:
+    def speakInference(self, text : str, model_name : str) -> npt.NDArray:
         ret : AudioSegment = None
         arrs = []
         for t in self._split_string_into_chunks(text, 512):
             print(f"Split text part: {t}")
-            seg = s.infer_from_text(t)
+            seg = s.infer_from_text(text = t, reference_file=model_name + ".wav")
             arrs.append(seg)
         try:
             return np.concatenate(arrs, 0)
@@ -79,10 +75,11 @@ class JarvisVoice:
         # Create an in-memory buffer for raw audio
         raw_audio = io.BytesIO(audio_wav)
         # Convert raw audio into an AudioSegment
-        return AudioSegment.from_raw(raw_audio, sample_width=2, frame_rate=21050, channels=1)
+        return AudioSegment.from_raw(raw_audio, sample_width=2, frame_rate=44050, channels=1)
 
     def convert_to_ogg(self, audio_wav) -> bytes:
         buffer = io.BytesIO()
+        
         try:
             # Convert raw audio into an AudioSegment
             audio_segment = self.convert_to_audiosegment(audio_wav)
@@ -93,11 +90,11 @@ class JarvisVoice:
         finally:
             buffer.close()
 
-    def speak(self, text : str, play : bool = True) -> bytes | None:
-        audio = self.speakInference(self.preprocess(text))
-        rev_audio = self.calcWaveForm(data = audio, freq = 440.0, sps = 22050)
+    def speak(self, text : str, play : bool = True, model_name : str = "Mario") -> bytes | None:
+        audio = self.speakInference(self.preprocess(text), model_name=model_name)
+        rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 44050)
         if play:
-            sd.play(data = rev_audio, samplerate=22050, blocking=True)
+            sd.play(data = rev_audio, samplerate=44050, blocking=True)
         else:
             return self.convert_to_ogg(rev_audio)
 

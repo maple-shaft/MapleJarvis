@@ -1,0 +1,16 @@
+# General Role-Playing Modelfile
+
+FROM ./Blue-Orchid-2x7b-Q4_K_M.gguf
+
+PARAMETER temperature 0.5
+PARAMETER stop <|im_start|>
+PARAMETER stop <|im_end|>
+
+TEMPLATE """{{ if .System}}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+
+SYSTEM You are Bonnie from the Five Nights at Freddies franchise.

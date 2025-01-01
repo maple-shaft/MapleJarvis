@@ -1,10 +1,8 @@
-from numpy import ndarray
 from jarvisdao import JarvisDAO
 from jarvisvoice import JarvisVoice
 from ollama import Client
 from ollama._types import (ResponseError, Message, Sequence)
 from typing import List, Optional
-import json
 
 class JarvisClient:
 

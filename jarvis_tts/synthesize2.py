@@ -1,6 +1,5 @@
 from enum import Enum
 import random
-import re
 import time
 import typing
 
@@ -11,11 +10,6 @@ np.random.seed(0)
 import yaml
 from rich import print
 
-from prompt_toolkit.layout.containers import Window, Container
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.cursor_shapes import CursorShape
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit import PromptSession
 from jarvis_tts.Modules.ui import REFERENCE_PATH, choose_reference, depend_zip, play_audio, write_audio
 
 import torch
@@ -205,7 +199,7 @@ def split_string_into_chunks(string, chunk_size):
     """Splits a string into equal-sized chunks."""
     return [string[i:i+chunk_size] for i in range(0, len(string), chunk_size)]
 
-def infer_from_text(text: str, reference_file : str = "freddy_fazbear.wav") -> npt.NDArray:
+def infer_from_text(text: str, reference_file : str = "helo.wav") -> npt.NDArray:
     #reference_file = REFERENCE_PATH + reference_file
     #initialize()
     style_cache: typing.Dict[str, Tensor] = {}
@@ -227,59 +221,3 @@ def infer_from_text(text: str, reference_file : str = "freddy_fazbear.wav") -> n
     finally:
         processing_time = time.time() - start
         print(f"Wrote data in {processing_time:2f}s (Ctrl+P to play)")    
-
-def main():
-    depend_zip('LibriTTS pre-trained model', PRETRAINED_MODEL_PATH, MODEL_URL)
-    depend_zip('Punkt tokenizer', PUNKT_PATH, PUNKT_URL, TOKENIZERS_PATH)
-
-    initialize()
-    print('[green]Successfully initialized model.[/green]')
-
-    state = State.CHOOSE_REFERENCE
-    style_cache: typing.Dict[str, Tensor] = {}
-    reference_file = ''
-    reference_label = ''
-    filepath = ''
-    session = PromptSession(history=FileHistory(PROMPT_HISTORY_PATH))
-    while state != State.DONE:
-        if state == State.CHOOSE_REFERENCE:
-            reference = choose_reference()
-            if reference is None:
-                state = State.DONE
-            else:
-                reference_file, reference_label = reference
-                print('Enter text for synthesis (Ctrl+C to go back)')
-                state = State.SYNTHESIZE
-        elif state == State.SYNTHESIZE:
-            bindings = KeyBindings()
-
-            @bindings.add('c-c')
-            def _(event):
-                " Exit when `c-c` is pressed. "
-                event.app.exit()
-            
-            @bindings.add('c-p')
-            def _(event):
-                " Play the most recently synthesized sound when `c-p` is pressed. "
-                play_audio(filepath)
-
-            print(f"[deep_sky_blue1]({reference_label})[/deep_sky_blue1] ", end="")
-            text = session.prompt("> ", key_bindings=bindings, cursor=CursorShape.UNDERLINE, wrap_lines=True)
-            if text is None:
-                state = State.CHOOSE_REFERENCE
-            elif len(text) > model_config['model_params']['max_conv_dim']:
-                print(f"[red]Sorry, StyleTTS2 is limited to {model_config['model_params']['max_conv_dim']} characters.[/red] Please shorten your input and try again.")
-            else:
-                start = time.time()
-                if reference_file not in style_cache:
-                    style_cache[reference_file] = compute_style(REFERENCE_PATH + reference_file)
-                audio = inference(text, style_cache[reference_file])
-                processing_time = time.time() - start
-                duration = len(audio) / model_config['preprocess_params']['sr']
-                filename = re.sub(r'\W', '', text)[:20]
-                filepath = write_audio(audio, filename)
-                print(f"[green]Synthesized {filepath}[/green]")
-                print(f"Wrote {duration:2f}s of data in {processing_time:2f}s (Ctrl+P to play)")
-
-if __name__ == "__main__":
-    main()

@@ -1,19 +1,24 @@
 from fastapi import FastAPI, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from numpy import ndarray
 import uvicorn
 from jarvisclient import JarvisClient
-from jarvisgui import JarvisGui
 from jarvisdao import JarvisDAO
-import pickle
 from asyncio import Queue, sleep
 from starlette.types import Message
 
+# Model Names
+MODEL_FREDDY = "freddy_fazbear"
+MODEL_RP = "rp"
+MODEL_MARIO = "Mario"
+MODEL_BONNIE = "bonnie"
+MODEL_FOXY = "foxy"
+
 jarvisDAO = JarvisDAO()
-jarvisClient = JarvisClient(dao = jarvisDAO, model = "rp")
-jarvisClient.createModel(modelName = "rp")
-jarvisClient.setModel(model = "rp")
+jarvisClient = JarvisClient(dao = jarvisDAO, model = MODEL_MARIO)
+jarvisClient.createModel(modelName = MODEL_MARIO)
+jarvisClient.setModel(model = MODEL_MARIO)
+
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="html"), name="static")
