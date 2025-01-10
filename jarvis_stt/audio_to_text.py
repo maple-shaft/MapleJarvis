@@ -16,102 +16,7 @@ import copy
 from typing import List, Optional, Union, Iterable
 import base64
 from transcription import TranscriptionWorker
-
-class AudioInput:
-
-    def __init__(self, device_index, sample_rate = 44100):
-        self.device_index = device_index
-        self.sample_rate = sample_rate
-        self.stream = None
-        self.audio_interface = None
-
-        # Constants
-        self.CHUNK = 1024
-        self.FORMAT = pyaudio.paInt16
-        self.CHANNELS = 1
-        self.DESIRED_RATE = 16
-
-    def list_devices(self):
-        try:
-            # TODO: What is colorama?
-            self.audio_interface = pyaudio.PyAudio()
-            device_count = self.audio_interface.get_device_count()
-            for i in range(device_count):
-                device_info = self.audio_interface.get_device_info_by_index(i)
-                device_name = device_info.get("name")
-                print(f"list_devices -> Device ID: {i}, Device Name: {device_name}")
-                if (device_info.get("maxInputChannels", 0) > 0):
-                    # Only consider devices with record capability
-                    print(f"list_devices -> Recording Device Found!")
-
-        except Exception as e:
-            print(f"Exception encountered: {e}")
-        finally:
-            if self.audio_interface:
-                self.audio_interface.terminate()
-
-    def setup(self):
-        """Initialize audio interface and setup stream"""
-        try:
-            self.audio_interface = pyaudio.PyAudio()
-            self.stream = self.audio_interface.open(
-                format = self.FORMAT,
-                channels = self.CHANNELS,
-                rate = self.sample_rate,
-                input = True,
-                frames_per_buffer = self.CHUNK,
-                input_device_index = self.device_index
-            )
-            return True
-        except Exception as e:
-            print(f"Exception encountered: {e}")
-            if self.audio_interface:
-                self.audio_interface.terminate()
-            return False
-        
-    def read_chunk(self):
-        while not any(v := self.stream.read(1, False)):
-            pass
-        #print(f"Read non zero chunk {v}")
-        return self.stream.read(self.CHUNK, exception_on_overflow=False)
-        
-    
-    def preprocess(self, chunk, original_sample_rate, target_sample_rate) -> bytes:
-        from scipy import signal as sig
-        if isinstance(chunk, np.ndarray):
-            if chunk.ndim == 2:
-                chunk = np.mean(chunk, axis=1)
-
-            # resample if necessary
-            if original_sample_rate != target_sample_rate:
-                num_samples = int(len(chunk) * target_sample_rate / original_sample_rate)
-                chunk = sig.resample(chunk, num_samples)
-
-            # Ensure it is fp16
-            chunk = chunk.astype(np.int16)
-        else:
-            # chunk must be bytes
-            chunk = np.frombuffer(chunk, dtype=np.int16)
-            # resample if necessary
-            if original_sample_rate != target_sample_rate:
-                num_samples = int(len(chunk) * target_sample_rate / original_sample_rate)
-                chunk = sig.resample(chunk, num_samples)
-                # Ensure it is fp16
-                chunk = chunk.astype(np.int16)
-        return chunk.tobytes()
-    
-    def cleanup(self):
-        """Cleanup audio resources"""
-        try:
-            if self.stream:
-                self.stream.stop_stream()
-                self.stream.close()
-                self.stream = None
-            if self.audio_interface:
-                self.audio_interface.terminate()
-                self.audio_interface = None
-        except Exception as e:
-            print(f"Exception encountered {e}")
+from audio_input import AudioInput, MicrophoneAudioInput
 
 class AudioRecorder:
 
@@ -124,7 +29,9 @@ class AudioRecorder:
         wakewords = "hey jarvis",
         use_main_model_for_realtime = False,
         on_realtime_transcription_update = None,
-        on_realtime_transcription_stabilized = None
+        on_realtime_transcription_stabilized = None,
+        audio_input : AudioInput = None,
+        silero_vad_model = None
         ):
 
         self.buffer_size = buffer_size
@@ -133,6 +40,8 @@ class AudioRecorder:
         self.pre_recording_buffer_duration : float = 1.0
         self.language = None
         self.realtime_batch_size : int = 16
+        self.audio_input = audio_input
+        self.silero_vad_model = silero_vad_model
 
         self.on_realtime_transcription_update = on_realtime_transcription_update
         self.on_realtime_transcription_stabilized = on_realtime_transcription_stabilized
@@ -152,6 +61,7 @@ class AudioRecorder:
         self.on_wakeword_timeout = None
         self.on_wakeword_detection_start = None
         self.on_wakeword_detection_end = None
+        #self.on_recorded_chunk = self._dab_write
         self.on_recorded_chunk = None
         self.wakewords_list = [
             word.strip() for word in wakewords.lower().split(',')
@@ -270,7 +180,8 @@ class AudioRecorder:
                     self.input_device_index,
                     self.shutdown_event,
                     self.interrupt_stop_event,
-                    self.use_microphone
+                    self.use_microphone,
+                    self.audio_input
                 )
             )
 
@@ -323,13 +234,13 @@ class AudioRecorder:
         
         # Setup voice activity detection model Silero VAD
         try:
-            self.silero_vad_model, _ = torch.hub.load(
-                repo_or_dir="snakers4/silero-vad",
-                model="silero_vad",
-                verbose=False,
-                onnx=False
-            )
-
+            if not self.silero_vad_model:
+                self.silero_vad_model, _ = torch.hub.load(
+                    repo_or_dir="snakers4/silero-vad",
+                    model="silero_vad",
+                    verbose=False,
+                    onnx=False
+                )
         except Exception as e:
             print(f"Error initializing Silero VAD "
                               f"voice activity detection engine: {e}"
@@ -388,7 +299,8 @@ class AudioRecorder:
         device_index : int | None,
         shutdown_event : threading.Event,
         interrupt_stop_event : threading.Event,
-        use_microphone = True):
+        use_microphone = True,
+        audio_input : AudioInput = None):
 
         #from scipy import signal
 
@@ -410,7 +322,8 @@ class AudioRecorder:
             while not shutdown_event.is_set():
                 try:
                     print("Attempting to setup Jarvis AudioInput object on device 1")
-                    audio_input = AudioInput(device_index=7, sample_rate=16000)
+                    if not audio_input:
+                        audio_input = MicrophoneAudioInput(device_index=7, sample_rate=16000)
                     if not audio_input.setup():
                         print("Unable to setup AudioInput on device 1")
                     return audio_input
@@ -420,7 +333,11 @@ class AudioRecorder:
                     time.sleep(3)
                     continue
         
-        audio_input = initialize_audio_input()
+        if not audio_input:
+            audio_input = initialize_audio_input()
+        else:
+            audio_input.setup()
+        #audio_input = initialize_audio_input()
         buffer = bytearray()
         silero_buffer_size = 2 * buffer_size
         time_since_last_buffer_message = 0
@@ -428,27 +345,25 @@ class AudioRecorder:
             while not shutdown_event.is_set():
                 try:
                     data = audio_input.read_chunk()
-                    if use_microphone:
-                        processed_data = audio_input.preprocess(data, 16000, 16000)
-
+                    if use_microphone and data:
+                        processed_data = audio_input.preprocess(data, target_sample_rate=target_sample_rate)
                         buffer += processed_data
                         while len(buffer) >= silero_buffer_size:
                             to_process = buffer[:silero_buffer_size]
                             buffer = buffer[silero_buffer_size:]
 
                             # DAB: Debug procedure to see what the hell is captured in this audio
-                            from pydub import AudioSegment
-                            from scipy.io import wavfile
-                            import uuid
-                            try:
+                            #from pydub import AudioSegment
+                            #from scipy.io import wavfile
+                            #import uuid
+                            #try:
                                 # Normalize and convert NumPy array to int16 PCM
-                                audio_wav = np.frombuffer(to_process, dtype=np.int16)
-                                # Create an in-memory buffer for raw audio
-                                wavfile.write(filename=f"/tmp/wav_{uuid.uuid4()}", rate = 16000, data = audio_wav)
-                                # Convert raw audio into an AudioSegment
-                                
-                            except Exception as e:
-                                print(f"Exception writing audio file for testing: {e}")
+                            #    audio_wav = np.frombuffer(to_process, dtype=np.int16)
+                            #    # Create an in-memory buffer for raw audio
+                            #    wavfile.write(filename=f"/tmp/wav_{uuid.uuid4()}", rate = 16000, data = audio_wav)
+                            #    # Convert raw audio into an AudioSegment   
+                            #except Exception as e:
+                            #    print(f"Exception writing audio file for testing: {e}")
 
                             # feed to the audio_queue
                             if time_since_last_buffer_message:
@@ -757,12 +672,26 @@ class AudioRecorder:
                 text += '.'
         return text
 
+    def _dab_write(self, data):
+        from pydub import AudioSegment
+        import io
+        from scipy.signal import resample
+        import wave
+
+        with wave.open(f"/tmp/raw_pcm_{repr(data[0])}.wav", "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(1)
+            wav_file.setframerate(44100)
+            wav_file.writeframes(data)
+
     def _process_wakeword(self, data : bytearray):
         """
         Processes audio data to detect wake words.
         """
-        
+        #self._dab_write(data)
         pcm = np.frombuffer(data, dtype=np.int16)
+        
+
         prediction = self.openwakeword.predict(pcm)
         #print(f"prediction: {prediction}")
         max_score = -1
@@ -772,6 +701,7 @@ class AudioRecorder:
         if wakewords_in_prediction:
             for idx, mdl in enumerate(self.openwakeword.prediction_buffer.keys()):
                 scores = list(self.openwakeword.prediction_buffer[mdl])
+                print(scores[-1])
                 if scores[-1] >= self.wakewords_sensitivity and scores[-1] > max_score:
                     max_score = scores[-1]
                     max_index = idx
@@ -1440,26 +1370,14 @@ class AudioRecorder:
             if self.is_recording:
                 self.on_realtime_transcription_stabilized(text)
 
-#aui = AudioInput(22, 44100)
-#aui.list_devices()
-#if not aui.setup():
-#    print("Failed to setup the audio device for streaming")
+def test():
+    aui = MicrophoneAudioInput(sample_rate=44100, format=pyaudio.paInt16, channels=1, device_index=2)
+    #aui.list_devices()
+    ar = AudioRecorder(audio_input=aui)
+    def process_text(text):
+        print(f"Text processed: {text}")
 
-ar = AudioRecorder()
+    while True:
+        ar.text(process_text)
 
-print("hello")
-#ch : bytes = aui.read_chunk()
-#print(f"Chunk read: {ch}")
-import uvicorn
-import fastapi
-app = fastapi.FastAPI()
-
-app.mount("/static", fastapi.staticfiles.StaticFiles(directory="html"), name="static")
-
-def process_text(text):
-    print(f"Text processed: {text}")
-
-while True:
-    ar.text(process_text)
-#if __name__ == '__main__':
-#    uvicorn.run(app, host='127.0.0.1', port=8000)
+test()

@@ -85,6 +85,7 @@ class JarvisVoice:
             audio_segment = self.convert_to_audiosegment(audio_wav)
             # Export to Opus format (WebM container) in memory
             audio_segment.export(buffer, format="webm", codec="libopus")
+            
             return buffer.getvalue()
             # Write the NumPy array as OGG format to the buffer
         finally:

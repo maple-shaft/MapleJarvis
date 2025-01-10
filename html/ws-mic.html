@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Interactive Web Client</title>
+</head>
+<body>
+    <header>
+        <h1>Jarvis Interactive Web Client</h1>
+    </header>
+    <main>
+        <p>Click the button below to request access to your microphone and stream audio to a server.</p>
+        <button id="start-button">Start Audio Stream</button>
+        <p id="status">Status: Not streaming</p>
+        <audio id="audioPlayer" autoplay></audio>
+    </main>
+    <footer>
+        <p>&copy; 2025</p>
+    </footer>
+
+    <script>
+        let clientid = 'freddy';
+        const startButton = document.getElementById('start-button');
+        const statusElement = document.getElementById('status');
+        const audioPlayer = document.getElementById("audioPlayer");
+        let wsaudio = new WebSocket("ws://127.0.0.1:8000/audio/" + clientid);
+        let websocket = new WebSocket("ws://127.0.0.1:8000/promptaudio/" + clientid);
+        let mediaRecorder;
+
+        async function startAudioStream() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Your browser does not support audio capture.');
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                statusElement.textContent = 'Status: Microphone access granted';
+
+                websocket.onopen = () => {
+                    statusElement.textContent = 'Status: Connected to server, streaming audio';
+                };
+
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    statusElement.textContent = 'Status: WebSocket error';
+                };
+
+                websocket.onclose = () => {
+                    statusElement.textContent = 'Status: WebSocket closed';
+                };
+
+                // Initialize MediaRecorder
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(event.data);
+                    }
+                };
+
+                mediaRecorder.start(50); // Send audio chunks every 100ms
+
+                startButton.textContent = 'Stop Audio Stream';
+                startButton.onclick = stopAudioStream;
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                statusElement.textContent = 'Status: Error accessing microphone';
+            }
+        }
+        
+        function stopAudioStream() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.close();
+            }
+
+            statusElement.textContent = 'Status: Not streaming';
+            startButton.textContent = 'Start Audio Stream';
+            startButton.onclick = startAudioStream;
+        }
+
+        startButton.onclick = startAudioStream
+
+        // Create a MediaSource for dynamic audio data
+        const mediaSource = new MediaSource();
+        audioPlayer.src = URL.createObjectURL(mediaSource);
+        //const sourceBuffer = mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
+
+        sourceopen = function() {
+            console.log(this.readyState)
+            const sourceBuffer = mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
+            sourceBuffer.addEventListener("updateend", () => {
+                console.log('In update end, readystate = ' + mediaSource.readyState);
+            });
+            wsaudio.onmessage = (event) => {
+                console.log('ws onmessage entered');
+                if (event.data instanceof Blob) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        sourceBuffer.appendBuffer(new Uint8Array(reader.result));
+                    };
+                    reader.readAsArrayBuffer(event.data);
+                }
+            }
+            wsaudio.onclose = () => {
+                console.log("ws connection closed");
+                mediaSource.endOfStream();
+            };
+        }
+        mediaSource.onsourceopen = sourceopen
+
+        wsaudio.onopen = () => {
+            console.log("ws connection open")
+        }
+        wsaudio.onerror = (error) => {
+            console.error("ws error:", error);
+        };
+    </script>
+</body>
+</html>
