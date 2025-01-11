@@ -1,0 +1,5 @@
+numpy<2
+openwakeword
+pydub
+pyaudio
+torch
