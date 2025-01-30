@@ -91,13 +91,15 @@ class JarvisVoice:
         finally:
             buffer.close()
 
-    def speak(self, text : str, play : bool = True, model_name : str = "Mario") -> bytes | None:
+    def speak(self, text : str, play : bool = True, model_name : str = "Mario", ogg_format : bool = True) -> bytes | None:
         audio = self.speakInference(self.preprocess(text), model_name=model_name)
         rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 44050)
         if play:
             sd.play(data = rev_audio, samplerate=44050, blocking=True)
-        else:
+        elif ogg_format:
             return self.convert_to_ogg(rev_audio)
+        else:
+            return rev_audio # return as wav
 
 
 #jv = JarvisVoice()

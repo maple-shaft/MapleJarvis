@@ -5,7 +5,7 @@ import wave
 import pyaudio
 import numpy as np
 from scipy import signal
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 audio_input = MicrophoneAudioInput(sample_rate=16000, format=pyaudio.paInt16, channels=1, device_index=2)
 aur = AudioRecorder(audio_input=audio_input)
@@ -23,10 +23,11 @@ while True:
     #time.sleep(3)
     audio_data = aur.get_audio_for_transcription()
     audio16 = np.int16(audio_data * 32767)
-    plt.plot(audio16)
-    plt.show()
+    #plt.plot(audio16)
+    #plt.show()
     print(f"Audio data length: {len(audio16)}")
-    with wave.open("/tmp/pitest.wav", "wb") as wv:
+    import uuid
+    with wave.open(f"/tmp/pitest{uuid.uuid4()}.wav", "wb") as wv:
         wv.setnchannels(1)
         wv.setframerate(16000)
         wv.setsampwidth(2)
