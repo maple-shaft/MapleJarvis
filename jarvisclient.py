@@ -103,6 +103,7 @@ class JarvisClient:
                     yield part_word
         except ResponseError as re:
             print(f"Response error in prompt: {re}")
+            pass
 
     def embed(self, document : str) -> Sequence[float]:
         response = self.client.embeddings(model = self.model, prompt = document)

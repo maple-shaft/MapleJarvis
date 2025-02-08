@@ -25,7 +25,7 @@ class TranscribeAudio:
         self.suppress_tokens = suppress_tokens
 
     def setup_model(self):
-        print("Setting up Faster Whisper model for audio transcription.")
+        print("TranscribeAudio.setup_model: Setting up Faster Whisper model for audio transcription.")
         try:
             self.model = faster_whisper.WhisperModel(
                 model_size_or_path=self.model_path,
@@ -39,11 +39,11 @@ class TranscribeAudio:
             self.model.transcribe(dummy_audio, language="en", beam_size=1)
             print("Faster_whisper main speech to text transcription model initialized successfully")
         except Exception as e:
-            print(f"Exception encountered in setup_model: {e}")
+            print(f"TranscribeAudio.setup_model: Exception encountered in setup_model: {e}")
             raise
 
     def transcribe(self, data : np.int16):
-        print("Starting transcription of client received data...")
+        print("TranscribeAudio.transcribe: Starting transcription of client received data...")
         try:
             audio = data.astype(np.float32) / 32768.0
             segments, info = self.model.transcribe(
@@ -55,8 +55,8 @@ class TranscribeAudio:
             )
 
             transcription = " ".join(seg.text for seg in segments).strip()
-            print(f"Transcribed the following text: {transcription}")
+            print(f"TranscribeAudio.transcribe: Transcribed the following text: {transcription}")
             return transcription
         except Exception as e:
-            print(f"Exception encountered in transcription: {e}")
+            print(f"TranscribeAudio.transcribe: Exception encountered in transcription: {e}")
             raise

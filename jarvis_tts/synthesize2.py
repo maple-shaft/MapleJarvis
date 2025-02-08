@@ -118,6 +118,8 @@ def inference(text, reference_style, alpha = 0.3, beta = 0.7, diffusion_steps=5,
         raise RuntimeError("Expected model to be initialized before performing inference")
 
     phonemes = phonemizer.phonemize([text.strip()])
+    if phonemes is None or len(phonemes) == 0:
+        return None
     phonemes = word_tokenize(phonemes[0])
     phonemes = ' '.join(phonemes)
     tokens = text_cleaner(phonemes)
@@ -214,7 +216,9 @@ def infer_from_text(text: str, reference_file : str = "helo.wav") -> npt.NDArray
                 print(f"Number of text chunks is {len(text_chunks)}")
                 audio_chunks = []
                 for v in text_chunks:
-                    audio_chunks.append(inference(text, style_cache[reference_file]))
+                    inf_temp = inference(text, style_cache[reference_file])
+                    if inf_temp is not None:
+                        audio_chunks.append(inf_temp)
                 return np.concatenate(audio_chunks)
             else:
                 return inference(text, style_cache[reference_file])

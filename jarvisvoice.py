@@ -24,6 +24,9 @@ class JarvisVoice:
     def __init__(self):
         s.initialize()
 
+    def close(self):
+        print("Closing JarvisVoice")     
+
     def _split_string_into_chunks_OLD(self, string, chunk_size) -> list[str]:
         """Splits a string into equal-sized chunks."""
         return [string[i:i+chunk_size] for i in range(0, len(string), chunk_size)]
@@ -49,9 +52,13 @@ class JarvisVoice:
         arrs = []
         for t in self._split_string_into_chunks(text, 512):
             print(f"Split text part: {t}")
+            if t is None or t == "":
+                continue
             seg = s.infer_from_text(text = t, reference_file=model_name + ".wav")
             arrs.append(seg)
         try:
+            if len(arrs) == 0:
+                return None
             return np.concatenate(arrs, 0)
         except Exception as e:
             print(e)
@@ -93,6 +100,8 @@ class JarvisVoice:
 
     def speak(self, text : str, play : bool = True, model_name : str = "Mario", ogg_format : bool = True) -> bytes | None:
         audio = self.speakInference(self.preprocess(text), model_name=model_name)
+        if audio is None:
+            return None
         rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 44050)
         if play:
             sd.play(data = rev_audio, samplerate=44050, blocking=True)

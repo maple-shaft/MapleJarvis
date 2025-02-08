@@ -30,6 +30,11 @@ class JarvisDAO:
         self.redis = get_redis_connection(host = host, port = port, decode_responses=True)
         print(self.redis.ping())
 
+    def close(self):
+        print("Closing JarvisDAO")
+        self.redis.close()
+        redis.close()
+
     @staticmethod
     def convert(from_data : Message) -> str:
         return JSONEncoder().encode(from_data)
