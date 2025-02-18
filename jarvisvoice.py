@@ -102,7 +102,10 @@ class JarvisVoice:
         audio = self.speakInference(self.preprocess(text), model_name=model_name)
         if audio is None:
             return None
-        rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 44050)
+        #rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 44050)
+        from scipy.signal import resample_poly
+        rev_audio = resample_poly(audio, 32050, 16000)
+        #rev_audio = audio
         if play:
             sd.play(data = rev_audio, samplerate=44050, blocking=True)
         elif ogg_format:

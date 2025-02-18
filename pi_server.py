@@ -1,5 +1,6 @@
 import socket
 import pickle
+import time
 import numpy as np
 import asyncio
 from typing import Any, AsyncGenerator, List
@@ -85,6 +86,7 @@ class PiServer:
         
             obj = pickle.loads(message)
             print(f"PiServer.receive_audio: obj received is {obj}")
+            self.debug_write_bytes_to_file(obj)
             return obj    
         except Exception as e:
             print(f"PiServer.receive_audio: Exception encountered: {e}")
@@ -121,11 +123,21 @@ class PiServer:
                 print(f"Complete sentence: {sentence}")
                 ret = self.jv.speak(text=sentence, play=False, model_name=self.model_name, ogg_format=False)
                 if ret is None:
+                    print("PiServer.process_model_response: JarvisVoice.speak returned None, skipping to the next sentence.")
                     continue
-                byte_data : bytes = ret
-                message = pickle.dumps(byte_data)
+                else:
+                    print(f"PiServer.process_model_response: JarvisVoice.speak returned a {type(ret)}")
+                #byte_data : bytes = ret
+                #message = pickle.dumps(byte_data)
+                self.debug_write_ndarray_to_file(ret)
+                
+                # Preprocess the float32 array into an int16
+                ret = (ret * 32767).astype(np.int16)
+                message = pickle.dumps(ret)
+                #print(f"PiServer.process_model_response: pickled message = {message}")
                 length = len(message)
                 length = str(length).rjust(8,"0")
+                print("PiServer.process_model_response: About to send Jarvis audio back to the client.")
                 conn.sendall(bytes(length, "utf-8"))
                 conn.sendall(message)
         except Exception as e:
@@ -136,6 +148,30 @@ class PiServer:
         print(f"Processing data from client: length = {len(data)}")
         text = self.transcribe.transcribe(data)
         return text
+    
+    def debug_write_bytes_to_file(self, audio16, filepath : str = f"/tmp/pitest{time.time()}.wav"):
+        """Write a debug wave file from a bytes array. The byte data is expected to be 16 bit mono."""
+        import wave
+        try:
+            audio16 = np.frombuffer(audio16, dtype=np.int16)
+            with wave.open(filepath, "wb") as wv:
+                wv.setnchannels(1)
+                wv.setframerate(16000)
+                wv.setsampwidth(2)
+                wv.writeframes(audio16)
+        except Exception as e:
+            print(f"main:debug_write_to_file: Exception encountered: {e}")
+
+    def debug_write_ndarray_to_file(self, audio : np.ndarray, filepath : str = f"/tmp/pitest{time.time()}.wav"):
+        """Write a numpy ndarray to a debug file. This MUST be int16 dtype so act accordingly."""
+        try:
+            if audio.dtype == np.float32:
+                # Convert it to int16
+                audio = (audio * 32767).astype(np.int16)
+            self.debug_write_bytes_to_file(audio16=audio, filepath=filepath)
+        except Exception as e:
+            print(f"PiServer.debug_write_ndarray_to_file: Exception encoutnered, {e}")
+
 
 if __name__ == "__main__":
     server = PiServer(host=HOST, port=PORT, model_name=MODEL_NAME)
