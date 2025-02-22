@@ -25,13 +25,6 @@ class JarvisVoice:
     def __init__(self):
         s.initialize()
 
-    def close(self):
-        print("Closing JarvisVoice")     
-
-    def _split_string_into_chunks_OLD(self, string, chunk_size) -> list[str]:
-        """Splits a string into equal-sized chunks."""
-        return [string[i:i+chunk_size] for i in range(0, len(string), chunk_size)]
-    
     def _split_string_into_chunks(self, text : str, chunk_size : int) -> list[str]:
         tokens = text.split()
         tokens.reverse()
@@ -46,8 +39,7 @@ class JarvisVoice:
             working += " " + token
         ret.append(working)
         return ret
-
-
+    
     def speakInference(self, text : str, model_name : str) -> npt.NDArray:
         ret : AudioSegment = None
         arrs = []
@@ -68,18 +60,10 @@ class JarvisVoice:
 
     def calcWaveForm(self, data, freq : float = 440.0, sps : int = 44100, atten : Optional[float] = None):
         waveform =  np.sin(2 * np.pi * freq * data / sps)
-        #waveform : ndarray[Any] = sin(2 * pi * each_sample_number * freq / sps)
         if atten:
             return waveform * atten
         else:
             return waveform
-    
-    def preprocess(self, text : str) -> str:
-        return text.replace("\n", "")
-    
-    def process_response_audio_for_playback(self, y : np.ndarray, sr = 44100) -> np.ndarray:
-        audio_wav = (y * 32767).astype(np.int16)
-        return pyr.time_stretch(y=audio_wav, sr=sr,rate=1.5)
     
     def convert_to_audiosegment(self, audio_wav, frame_rate = 44050) -> AudioSegment:
         # Normalize and convert NumPy array to int16 PCM
@@ -89,35 +73,47 @@ class JarvisVoice:
         # Convert raw audio into an AudioSegment
         return AudioSegment.from_raw(raw_audio, sample_width=2, frame_rate=frame_rate, channels=1)
 
-    def convert_to_ogg(self, audio_wav) -> bytes:
-        buffer = io.BytesIO()
-        
-        try:
-            # Convert raw audio into an AudioSegment
-            audio_segment = self.convert_to_audiosegment(audio_wav)
-            # Export to Opus format (WebM container) in memory
-            audio_segment.export(buffer, format="webm", codec="libopus")
-            
-            return buffer.getvalue()
-            # Write the NumPy array as OGG format to the buffer
-        finally:
-            buffer.close()
+    def convert_to_numpy(self, aus : AudioSegment):
+        dtype = getattr(np, "int{:d}".format(aus.sample_width * 8))  # Or could create a mapping: {1: np.int8, 2: np.int16, 4: np.int32, 8: np.int64}
+        arr = np.ndarray((int(aus.frame_count()), aus.channels), buffer=aus.raw_data, dtype=dtype)
+        print("\n", aus.frame_rate, arr.shape, arr.dtype, arr.size, len(aus.raw_data), len(aus.get_array_of_samples()))  # @TODO: Comment this line!!!
+        return arr, aus.frame_rate
 
-    def speak(self, text : str, play : bool = True, model_name : str = "Mario", ogg_format : bool = True) -> bytes | None:
-        audio = self.speakInference(self.preprocess(text), model_name=model_name)
+    def speak(self, text : str, play : bool = True, model_name : str = "Mario") -> bytes | None:
+        from scipy.signal import resample_poly
+        # This returns a float32 dtype numpy array.  Probably sampled at 44100.
+        audio = self.speakInference(text, model_name=model_name)
         if audio is None:
             return None
+        #rev_audio = self.calcWaveForm(data = audio, freq = 1440.0, sps = 21000, atten = 8)
+        #rev_audio = (audio * 32767).astype(np.int16)
+        #import pydub.scipy_effects as se
+        #import pydub.effects as ef
+        
+        #aus = AudioSegment.from_raw(io.BytesIO(rev_audio.tobytes()), sample_width=2, frame_rate=44100, channels=1)
+        #aus = ef.speedup(aus, playback_speed=1.75)
+        #import pydub.playback as pb
+        #num_samples = int(len(rev_audio) * 21050 / 44100)
+        #rev_audio = resample(rev_audio, num_samples)
+
         rev_audio = audio
-        rev_audio = self.process_response_audio_for_playback(rev_audio, sr=21000)
-        #rev_audio = audio
-        if play:
-            sd.play(data = rev_audio, samplerate=44050, blocking=True)
-        elif ogg_format:
-            return self.convert_to_ogg(rev_audio)
-        else:
-            return rev_audio # return as wav
+        #audio.clip(max=6000)
+        #rev_audio = resample_poly(audio, 44100, 16000)
+        audio_wav = (rev_audio * 32767).astype(np.int16)
+        stretched_audio = pyr.time_stretch(y=audio_wav, sr=21000,rate=1.5)
+        stretched_audio = stretched_audio.astype(np.float32)
+        #y = np.array(aus.get_array_of_samples())
+        #if aus.channels == 2:
+        #    y = y.reshape((-1, 2))
+        #if normalized:
+        #rev_audio = np.float32(y) / 2**15
+        #else:
+        #    return a.frame_rate, y
+        #rev_audio, rev_framerate = self.convert_to_numpy(aus)
+        #p(aus)
+        sd.play(stretched_audio, 21000, blocking=True)
 
 
-#jv = JarvisVoice()
+jv = JarvisVoice()
 
-#jv.speak("Hello! It is so nice to finally meet you. My name is Mel, and I will be your assistant today.")
+jv.speak("Hello! It is so nice to finally meet you. My name is Freddy.", model_name="freddy_fazbear")

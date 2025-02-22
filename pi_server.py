@@ -132,7 +132,7 @@ class PiServer:
                 self.debug_write_ndarray_to_file(ret)
                 
                 # Preprocess the float32 array into an int16
-                ret = (ret * 32767).astype(np.int16)
+                #ret = (ret * 32767).astype(np.int16)
                 message = pickle.dumps(ret)
                 #print(f"PiServer.process_model_response: pickled message = {message}")
                 length = len(message)
