@@ -1,0 +1,17 @@
+# Vision Model using LLava
+
+FROM llava
+
+PARAMETER temperature 0.1
+PARAMETER stop <|im_start|>
+PARAMETER stop <|im_end|>
+
+TEMPLATE """{{ if .System}}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+
+SYSTEM """You are a precise image description system. Your task is to carefully describe the image, 
+including any objects, the scene, colors, people, animals, and any text you can detect."""

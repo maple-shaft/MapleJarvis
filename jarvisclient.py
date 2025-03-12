@@ -5,10 +5,13 @@ from ollama._types import (ResponseError, Message, Sequence)
 from typing import List, Optional
 import asyncio
 
+DEFAULT_SYSTEM_PROMPT : str = "You are a helpful AI assistant."
+
 class JarvisClient:
 
     def __init__(self, dao : JarvisDAO, model : str = "llama3.2", host = "http://localhost:11434",
-                 conversation_id : Optional[str] = None, isAsync : bool = False, voice = JarvisVoice()):
+                 conversation_id : Optional[str] = None, isAsync : bool = False, voice = JarvisVoice(),
+                 system_prompt : str = DEFAULT_SYSTEM_PROMPT):
         self.dao = dao
         self.model = model
         self.current_conversation = conversation_id
@@ -19,6 +22,7 @@ class JarvisClient:
             self.client = AsyncClient(host=host)
         self.messages = []
         self.voice = voice
+        self.setSystemMessage(system_prompt=system_prompt)
     
     def clearConversation(self):
         self.messages = []
@@ -29,6 +33,7 @@ class JarvisClient:
 
     def setSystemMessage(self, system_prompt : str):
         self.clearConversation()
+        self.system_prompt = system_prompt
         systemMessage : Message = self._craftMessage(text = system_prompt, role = "system")
         self.messages.append(systemMessage)
 
@@ -99,7 +104,7 @@ class JarvisClient:
             async for part in await self.client.chat(model=self.model, messages=self.messages, stream=True):
                 if part and part["message"] and part["message"]["content"]:
                     part_word = part["message"]["content"]
-                    print(f"About to yield part: {part_word}")
+                    #print(f"About to yield part: {part_word}")
                     yield part_word
         except ResponseError as re:
             print(f"Response error in prompt: {re}")

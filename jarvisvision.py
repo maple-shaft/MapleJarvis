@@ -2,6 +2,8 @@ import cv2
 import os
 import time
 import pandas as pd
+from typing import Literal, Optional
+from pydantic import BaseModel
 from PIL import Image
 from io import BytesIO
 from ollama import AsyncClient, Client
@@ -12,10 +14,39 @@ from concurrent.futures._base import Executor, Future
 
 IMAGE_MODEL : str = "llava"
 PROMPT : str = "describe this image and make sure to include anything notable about it (include text you see in the image):"
+SYSTEM_PROMPT : str = """You are a precise image description system. Your task is to carefully describe the image, including any objects, the scene, colors, people, animals, and any text you can detect."""
+USER_PROMPT : str = "Analyze this image and describe what you see, including any objects, the scene, colors, people, animals, and any text you can detect."
 OUTPUT_FILE_PATH : str = "./data/webcam_descriptions.csv"
 FRAME_RATE : int = 40
 WIDTH : int = 640
 HEIGHT : int = 480
+TEMPERATURE : int = 0
+
+class PredictiveBaseModel(BaseModel):
+    confidence : float
+
+class HairObject(PredictiveBaseModel):
+    color : Literal["Blonde","Brown","Red","Black","Gray","Other"]
+    length : Literal["Bald","Short","Medium","Long","Other"]
+    texture : Literal["Fine","Coarse","Scruffy","Whispy","Other"]
+
+class PeopleObject(PredictiveBaseModel):
+    gender : str
+    age : Literal["Baby","Toddler","Child","Teen","Adult","Older Adult"]
+    hair : HairObject
+    facial_expression : Literal["Angry", "Pensive", "Surprised", "Smiling","Other"]
+
+class AnimalObject(PredictiveBaseModel):
+    species : str
+    color : str
+    age : Literal["Baby","Young","Adult","Old","Other"]
+
+class ImageDescription(PredictiveBaseModel):
+    summary : str
+    scene : str
+    text_context: Optional[str]
+    people : list[PeopleObject]
+    animals : list[AnimalObject]
 
 class JarvisVision:
 
@@ -56,7 +87,7 @@ class JarvisVision:
         if os.path.isfile(filename):
             df = pd.read_csv(filename)
         else:
-            df = pd.DataFrame(columns=['image_file', 'description'])
+            df = pd.DataFrame(columns=['timestamp', 'description'])
         return df
     
     def start(self) -> Future | Thread:
@@ -95,18 +126,29 @@ class JarvisVision:
             while not self.shutdown_event.is_set():
                 frame_bytes = self.get_image_bytes()
                 full_response = ""
-                for response in self.ollama_client.generate(model = self.model,
-                                            prompt=PROMPT,
-                                            images=[frame_bytes],
-                                            stream=True
-                                            ):
-                    print(response['response'], end='', flush=True)
-                    full_response += response['response']
+                messages = [
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT
+                    },
+                    {
+                        "role": "user",
+                        "content": USER_PROMPT,
+                        "images": [frame_bytes]
+                    }
+                ]
+                response = self.ollama_client.chat(
+                                            model = self.model,
+                                            format=ImageDescription.model_json_schema(),
+                                            messages=messages,
+                                            stream=False
+                                            #options={"temperature": TEMPERATURE}
+                                            )
+                image_description = ImageDescription.model_validate_json(response["message"]["content"])
+                print(f"Image Description = {image_description}")
                 
-                # Trim up unnecessary line feeds and spacing
-                full_response = full_response.replace("\n", " ")
                 # Add a new row to the DataFrame
-                self.data_frame.loc[len(self.data_frame)] = [time.time(), full_response]
+                #self.data_frame.loc[len(self.data_frame)] = [time.time(), full_response]
                 time.sleep(10.0)
         except Exception as e:
             print(f"Exception encountered in JarvisVision.watch: {e}")
@@ -117,7 +159,7 @@ def main():
     ollama_client = Client(host="http://10.0.0.169:11434")
     
     with ThreadPoolExecutor() as executor:
-        with JarvisVision(frame_queue = q, executor=executor, ollama_client=ollama_client, shutdown_event=shutdown_event) as jv:
+        with JarvisVision(frame_queue = q, executor=executor, model="VisionModel", ollama_client=ollama_client, shutdown_event=shutdown_event) as jv:
             try:
                 t_or_f = jv.start()
                 if type(t_or_f) == Thread:
